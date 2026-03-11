@@ -16,18 +16,23 @@ app = Flask(__name__)
 INDEX_DIR = "index_dir"
 CONFIG_FILE = "config.json"
 
-def load_config():
-    if os.path.exists(CONFIG_FILE):
-        with open(CONFIG_FILE, "r", encoding="utf-8") as f:
-            return json.load(f)
-    return {}
-
 def get_db_stats():
-    config = load_config()
-    db_path = config.get("db_path", "data.db")
-    if not os.path.exists(db_path):
+    # 현재 파일(search_app.py)이 있는 폴더 기준
+    base_dir = os.path.dirname(os.path.abspath(__file__)) if '__file__' in locals() else os.getcwd()
+    config_path = os.path.join(base_dir, CONFIG_FILE)
+    
+    db_path = "data.db"
+    if os.path.exists(config_path):
+        with open(config_path, "r", encoding="utf-8") as f:
+            cfg = json.load(f)
+            db_path = cfg.get("db_path", "data.db")
+            
+    db_full_path = os.path.join(base_dir, db_path)
+
+    if not os.path.exists(db_full_path):
         return {"total": 0, "sites": []}
-    conn = sqlite3.connect(db_path)
+        
+    conn = sqlite3.connect(db_full_path)
     c = conn.cursor()
     c.execute("SELECT COUNT(*) FROM pages")
     total = c.fetchone()[0]
@@ -366,12 +371,16 @@ def index():
         if not query_str:
             return render_template_string(HTML_TEMPLATE, **context)
 
-        if not exists_in(INDEX_DIR):
+        # index_dir 경로 절대화
+        base_dir = os.path.dirname(os.path.abspath(__file__)) if '__file__' in locals() else os.getcwd()
+        full_index_dir = os.path.join(base_dir, INDEX_DIR)
+
+        if not exists_in(full_index_dir):
             context["error"] = "인덱스가 없습니다. python indexer.py를 먼저 실행하세요."
             return render_template_string(HTML_TEMPLATE, **context)
 
         try:
-            ix = open_dir(INDEX_DIR)
+            ix = open_dir(full_index_dir)
             with ix.searcher(weighting=scoring.BM25F()) as searcher:
                 parser = MultifieldParser(["title", "keywords", "content"], ix.schema)
                 parser.add_plugin(FuzzyTermPlugin())
