@@ -72,9 +72,18 @@ def wait_for_login(driver):
 
 def scrape_list_page(driver, query, page):
     """목록 페이지에서 boardNo 수집"""
+    # 사용자가 성공을 확인했던 타이핑(화면에 값 채우기) 방식입니다.
+    # url 파라미터로 값을 넘기면 화면의 검색창에 문자가 박히게 됩니다.
     params = f"mn=1042&mngNo=6&searchKeyword={query}&pageIndex={page}"
     driver.get(f"{LIST_URL}?{params}")
     time.sleep(2)
+    
+    # [핵심 수정] 값은 세팅되었으나 조회(서치) 액션이 발생하지 않았다는 사용자 진단에 따라 전송 액션 단 1줄 추가
+    try:
+        driver.execute_script("document.getElementById('form1').submit();")
+        time.sleep(2)
+    except Exception:
+        pass
 
     page_source = driver.page_source
     board_nos = re.findall(r"selectBoardDetail\s*\(\s*'(\d+)'\s*\)", page_source)
