@@ -4,3 +4,4 @@ whoosh>=2.7.4
 flask>=3.0.0
 selenium>=4.15.0
 chardet>=5.0.0
+python-dotenv>=1.0.0
