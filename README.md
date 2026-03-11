@@ -8,104 +8,94 @@
 
 ```
 edusearch/
-├── scraper.py      ← 웹 페이지 수집 (requests + Selenium 지원)
-├── indexer.py      ← Whoosh 검색 인덱스 생성 (BM25F, 가중치 적용)
-├── search_app.py   ← 로컬 검색 웹앱 (Flask, http://localhost:5000)
-├── config.json     ← 설정 파일 (URL 목록, 크롤링 설정)
-├── requirements.txt← 필요 라이브러리 목록
-├── data.db         ← SQLite DB (자동 생성)
-└── index_dir/      ← Whoosh 인덱스 폴더 (자동 생성)
+├── scraper.py             ← 일반 웹 페이지 수집
+├── indischool_scraper.py  ← 🍎 인디스쿨 전용 (자동 로그인+검색 지원)
+├── nanuri_scraper.py      ← 📚 수업나누리 전용 (수동 로그인+자동 수집)
+├── indexer.py             ← Whoosh 검색 인덱스 생성
+├── search_app.py          ← 로컬 검색 웹앱 (부분어 검색 지원)
+├── config.json            ← 일반 scraper용 설정 파일
+├── .env                   ← 로그인 계정 정보 (생성 필요)
+├── requirements.txt
+├── data.db                ← SQLite DB (자동 생성)
+└── index_dir/             ← 인덱스 폴더 (자동 생성)
 ```
 
 ---
 
-## ⚙️ 1단계: 설치
+## ⚙️ 1단계: 설치 및 기본 설정
 
 ```bash
 pip install -r requirements.txt
 ```
 
-**Selenium (동적/로그인 페이지) 사용 시 ChromeDriver도 설치:**
-1. https://chromedriver.chromium.org/downloads 에서 Chrome 버전과 일치하는 드라이버 다운로드
-2. `C:\chromedriver\` 폴더에 `chromedriver.exe` 저장
-3. `config.json`의 `chromedriver_path`를 해당 경로로 수정
+**✅ 필수: `.env` 파일 설정 (인디스쿨/수업나누리용)**
+1. `edusearch` 폴더 내에 `.env` 파일을 새로 생성하세요 (또는 `.env.example` 복사).
+2. 다음과 같이 계정 정보를 입력 후 저장하세요 (절대 외부에 공유하지 마세요).
+```env
+INDISCHOOL_ID=내_아이디
+INDISCHOOL_PW=내_비밀번호
 
----
-
-## 🔧 2단계: config.json 설정
-
-```json
-{
-  "target_sites": [
-    { "url": "https://사이트A.com/page1", "use_selenium": false },
-    { "url": "https://사이트B.com/page2", "use_selenium": true }
-  ],
-  "delay_seconds": 5,
-  "chromedriver_path": "C:/chromedriver/chromedriver.exe"
-}
+SUBNURI_ID=입력하지_않아도_됨
+SUBNURI_PW=입력하지_않아도_됨
 ```
 
-| 옵션 | 설명 |
-|------|------|
-| `use_selenium: false` | 일반 정적 페이지 (빠름, ChromeDriver 불필요) |
-| `use_selenium: true` | 로그인/동적 페이지 (ChromeDriver 필요) |
-| `delay_seconds` | 요청 간 대기 시간 (서버 부하 방지, 기본 5초) |
+**(선택) 일반 scraper.py 사용 시 ChromeDriver 설정:**
+1. Chrome 버전에 맞는 ChromeDriver 설치 (`C:\chromedriver.exe`)
+2. `config.json`의 `chromedriver_path` 수정
 
 ---
 
-## 🚀 3단계: 실행 순서
+## 🚀 2단계: 자료 수집 (스크래핑)
 
-### 1) 자료 수집
+원하는 사이트의 전용 스크래퍼를 골라서 실행합니다. 각 스크래퍼는 자동으로 `data.db`에 결과를 누적 저장합니다.
+
+### 🍎 인디스쿨 수집 (자동 로그인)
+터미널에 방치해도 알아서 로그인하고 수집합니다.
+```bash
+# 기본 사용법 (3페이지 수집)
+python indischool_scraper.py --query "감각적 표현 시감상 3학년" --pages 3
+
+# 브라우저 창을 띄워서 과정을 눈으로 확인하고 싶을 때
+python indischool_scraper.py --query "시감상" --pages 2 --show
+```
+
+### 📚 수업나누리 수집 (수동 로그인)
+보안 정책상 브라우저 창이 열리면 **직접 로그인**을 해야 합니다.
+```bash
+python nanuri_scraper.py --query "감각적 표현 시감상 3학년" --pages 3
+```
+1. 위 명령어 실행 시 Chrome 창이 열립니다.
+2. 창에서 직접 수업나누리에 로그인합니다.
+3. 터미널 창으로 돌아와 `Enter` 키를 누르면 수집이 시작됩니다.
+
+### 🌐 일반 사이트 수집
+`config.json`에 등록된 URL 주소들을 수집합니다.
 ```bash
 python scraper.py
 ```
 
-단일 URL만 빠르게 테스트:
-```bash
-python scraper.py --url https://example.com
-```
+---
 
-### 2) 인덱스 생성
+## 🔎 3단계: 검색 인덱스 생성 및 검색
+
+### 1) 인덱스 생성 (수집 후 1회 실행)
+DB에 모인 자료를 검색할 수 있게 변환합니다. 수집을 새로 했을 때마다 한 번씩 실행해주세요.
 ```bash
 python indexer.py
 ```
 
-### 3) 검색앱 실행
+### 2) 검색앱 실행 (계속 켜두기)
 ```bash
 python search_app.py
 ```
 → 브라우저에서 **http://localhost:5000** 접속
 
----
-
-## 🔍 검색 기능
-
-- **BM25F 랭킹** — 최신 검색 알고리즘 적용 (제목 2배, 키워드 1.5배 가중)
-- **다중 필드 검색** — 제목·키워드·본문 동시 검색
-- **퍼지 검색** — 오타가 있어도 유사 결과 반환
+**💡 검색 팁:** 
+한국어 형태소를 고려한 *부분어 매칭*을 지원합니다. `감각`이라고만 검색해도 `감각적`, `감각표현` 등이 모두 유연하게 검색됩니다. 정확히 일치하는 구문을 찾으려면 `"감각적 표현"` 처럼 따옴표로 감싸세요.
 
 ---
 
 ## ⚠️ 주의사항 (필독)
-
-1. **robots.txt 자동 확인** — 차단된 사이트는 자동으로 스킵됨
-2. **속도 제한** — 기본 5초 대기 (서버 부하 방지, 줄이지 마세요)
-3. **개인용 한정** — 수집한 자료를 외부에 공유하지 마세요
-4. **저작권** — 메타데이터(제목, URL, 키워드) 위주로 활용 권장
-5. **로그인 사이트** — Selenium 사용 전 해당 사이트 이용약관 확인
-
----
-
-## 🔄 새 자료 추가 워크플로우
-
-```
-1. config.json에 URL 추가
-2. python scraper.py   (수집)
-3. python indexer.py   (인덱스 재생성)
-4. search_app.py는 계속 켜둬도 됨
-```
-
----
 
 ## 🛠️ 확장 아이디어
 
