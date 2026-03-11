@@ -373,12 +373,23 @@ def index():
         try:
             ix = open_dir(INDEX_DIR)
             with ix.searcher(weighting=scoring.BM25F()) as searcher:
-                # 제목·키워드·본문 모두 검색, 퍼지 검색 플러그인 추가
                 parser = MultifieldParser(["title", "keywords", "content"], ix.schema)
                 parser.add_plugin(FuzzyTermPlugin())
 
-                query = parser.parse(query_str)
+                # 한국어 부분어 검색: 각 단어 뒤에 * 자동 추가
+                # "감각" → "감각*" 으로 처리하여 "감각적", "감각표현" 등 매칭
+                # (이미 * 또는 "가 들어있으면 그대로 사용)
+                if "*" not in query_str and '"' not in query_str:
+                    expanded = " ".join(
+                        term + "*" if not term.upper() in ("AND", "OR", "NOT") else term
+                        for term in query_str.split()
+                    )
+                else:
+                    expanded = query_str
+
+                query = parser.parse(expanded)
                 hits = searcher.search(query, limit=30)
+
 
                 results = []
                 for hit in hits:
